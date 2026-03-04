@@ -85,6 +85,39 @@ export default function Page() {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Load state from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedState = localStorage.getItem('komikState');
+      if (savedState) {
+        const parsed = JSON.parse(savedState);
+        if (parsed.view) setView(parsed.view);
+        if (parsed.activeTab) setActiveTab(parsed.activeTab);
+        if (parsed.selectedComicUrl) setSelectedComicUrl(parsed.selectedComicUrl);
+        if (parsed.selectedChapterUrl) setSelectedChapterUrl(parsed.selectedChapterUrl);
+      }
+    } catch (e) {
+      console.error('Failed to load state from localStorage', e);
+    }
+    setIsInitialized(true);
+  }, []);
+
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    if (!isInitialized) return;
+    try {
+      localStorage.setItem('komikState', JSON.stringify({
+        view,
+        activeTab,
+        selectedComicUrl,
+        selectedChapterUrl
+      }));
+    } catch (e) {
+      console.error('Failed to save state to localStorage', e);
+    }
+  }, [view, activeTab, selectedComicUrl, selectedChapterUrl, isInitialized]);
 
   const fetchComics = async (type: 'update' | 'list', forceRefresh = false) => {
     if (!forceRefresh && clientCache[type]) {
@@ -113,19 +146,23 @@ export default function Page() {
     }
   };
 
-  const fetchComicDetail = async (url: string, forceRefresh = false) => {
-    setSelectedComicUrl(url);
-    setView('detail');
+  const fetchComicDetail = async (url: string, forceRefresh = false, silent = false) => {
+    if (!silent) {
+      setSelectedComicUrl(url);
+      setView('detail');
+    }
     
     if (!forceRefresh && clientCache.details[url]) {
       setComicDetail(clientCache.details[url]);
-      setError(null);
+      if (!silent) setError(null);
       return;
     }
     
-    setLoading(true);
-    setError(null);
-    setComicDetail(null);
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+      setComicDetail(null);
+    }
     try {
       const res = await fetch(`/api/komik?type=detail&url=${encodeURIComponent(url)}`);
       const data = await res.json();
@@ -137,9 +174,9 @@ export default function Page() {
       setComicDetail(data);
       clientCache.details[url] = data;
     } catch (err: any) {
-      setError(err.message);
+      if (!silent) setError(err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -174,10 +211,19 @@ export default function Page() {
   };
 
   useEffect(() => {
+    if (!isInitialized) return;
+
     if (view === 'home') {
       fetchComics(activeTab);
+    } else if (view === 'detail' && selectedComicUrl) {
+      fetchComicDetail(selectedComicUrl);
+    } else if (view === 'chapter' && selectedChapterUrl) {
+      fetchChapterDetail(selectedChapterUrl);
+      if (selectedComicUrl && !comicDetail) {
+        fetchComicDetail(selectedComicUrl, false, true);
+      }
     }
-  }, [activeTab, view]);
+  }, [view, activeTab, isInitialized]); // Only trigger on view/tab change or initialization
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
