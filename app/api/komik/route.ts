@@ -6,6 +6,28 @@ export const dynamic = 'force-dynamic';
 const serverCache = new Map<string, { data: any, timestamp: number }>();
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3.1 Mobile/15E148 Safari/604.1',
+  'Mozilla/5.0 (iPad; CPU OS 17_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3.1 Mobile/15E148 Safari/604.1',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0'
+];
+
+const REFERERS = [
+  'https://komikremaja.art/',
+  'https://www.google.com/',
+  'https://www.bing.com/',
+  'https://yandex.com/',
+  'https://duckduckgo.com/',
+  'https://komikcast.vip/',
+  'https://komikindo.tv/'
+];
+
+const getRandomElement = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') || 'update';
@@ -39,7 +61,14 @@ export async function GET(request: Request) {
   const scrapeUrl = `http://api.scrape.do/?token=${token}&url=${encodeURIComponent(targetUrl)}`;
 
   try {
-    const response = await fetch(scrapeUrl);
+    const response = await fetch(scrapeUrl, {
+      headers: {
+        'User-Agent': getRandomElement(USER_AGENTS),
+        'Referer': getRandomElement(REFERERS),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+      }
+    });
     if (!response.ok) {
       throw new Error(`Scrape.do failed with status ${response.status}`);
     }
