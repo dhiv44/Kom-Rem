@@ -1,0 +1,5 @@
+{
+  "name": "Remix: KomikRemaja Scraper",
+  "description": "Mobile-friendly web app to scrape comic updates and list from komikremaja.art using scrape.do",
+  "requestFramePermissions": []
+}
