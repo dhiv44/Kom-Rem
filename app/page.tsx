@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2, RefreshCw, AlertCircle, BookOpen, List, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 
 interface Comic {
@@ -28,6 +28,48 @@ const clientCache = {
   list: null as Comic[] | null,
   details: {} as Record<string, ComicDetail>,
   chapters: {} as Record<string, ChapterDetail>
+};
+
+const LazyImage = ({ src, alt, className, imgClassName }: { src: string, alt: string, className?: string, imgClassName?: string }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  const imgRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '600px' } // Load well before it comes into view
+    );
+
+    if (imgRef.current) {
+      observer.observe(imgRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={imgRef} className={`relative bg-slate-100 overflow-hidden ${className || ''}`}>
+      {!isLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center animate-pulse">
+          <ImageIcon className="w-8 h-8 text-slate-300 opacity-50" />
+        </div>
+      )}
+      {isInView && (
+        <img
+          src={src}
+          alt={alt}
+          onLoad={() => setIsLoaded(true)}
+          className={`w-full h-full transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'} ${imgClassName || ''}`}
+        />
+      )}
+    </div>
+  );
 };
 
 export default function Page() {
@@ -243,11 +285,11 @@ export default function Page() {
                     {activeTab === 'update' && (
                       <div className="aspect-[3/4] w-full bg-slate-100 relative overflow-hidden">
                         {comic.image ? (
-                          <img 
+                          <LazyImage 
                             src={`/api/image?url=${encodeURIComponent(comic.image)}`} 
                             alt={comic.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            loading="lazy"
+                            className="w-full h-full"
+                            imgClassName="object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-slate-300">
@@ -286,7 +328,12 @@ export default function Page() {
                 <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row gap-6">
                   {comicDetail.image && (
                     <div className="w-32 sm:w-48 shrink-0 mx-auto sm:mx-0 rounded-xl overflow-hidden shadow-sm">
-                      <img src={`/api/image?url=${encodeURIComponent(comicDetail.image)}`} alt={comicDetail.title} className="w-full h-auto object-cover" />
+                      <LazyImage 
+                        src={`/api/image?url=${encodeURIComponent(comicDetail.image)}`} 
+                        alt={comicDetail.title} 
+                        className="w-full aspect-[3/4]"
+                        imgClassName="object-cover"
+                      />
                     </div>
                   )}
                   <div className="flex-1">
@@ -349,12 +396,12 @@ export default function Page() {
                   </div>
                 ) : chapterDetail.images.length > 0 ? (
                   chapterDetail.images.map((img, i) => (
-                    <img 
+                    <LazyImage 
                       key={i} 
                       src={`/api/image?url=${encodeURIComponent(img)}`} 
                       alt={`Page ${i + 1}`} 
-                      className="w-full max-w-3xl h-auto block"
-                      loading="lazy"
+                      className="w-full max-w-3xl min-h-[50vh] sm:min-h-[80vh] bg-slate-900"
+                      imgClassName="h-auto block"
                     />
                   ))
                 ) : (
