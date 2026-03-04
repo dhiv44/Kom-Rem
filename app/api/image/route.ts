@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { put, list } from '@vercel/blob';
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -30,7 +31,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'URL is required' }, { status: 400 });
   }
 
+  const hasBlobToken = !!process.env.BLOB_READ_WRITE_TOKEN;
+  let filename = '';
+
   try {
+    if (hasBlobToken) {
+      // Create a safe filename from the URL
+      const extMatch = url.match(/\.(jpg|jpeg|png|webp|avif|gif)/i);
+      const ext = extMatch ? extMatch[0] : '.jpg';
+      const safeName = Buffer.from(url).toString('base64url').substring(0, 150);
+      filename = `komik/${safeName}${ext}`;
+
+      // Check if it already exists in Vercel Blob
+      const { blobs } = await list({ prefix: filename, limit: 1 });
+      if (blobs.length > 0) {
+        // Redirect to the existing blob URL
+        return NextResponse.redirect(blobs[0].url);
+      }
+    }
+
     const response = await fetch(url, {
       headers: {
         'User-Agent': getRandomElement(USER_AGENTS),
@@ -56,6 +75,17 @@ export async function GET(request: NextRequest) {
     const contentType = response.headers.get('content-type') || 'image/jpeg';
     const arrayBuffer = await response.arrayBuffer();
 
+    if (hasBlobToken) {
+      // Upload to Vercel Blob
+      const blob = await put(filename, arrayBuffer, {
+        access: 'public',
+        contentType: contentType,
+      });
+      // Redirect to the new blob URL
+      return NextResponse.redirect(blob.url);
+    }
+
+    // Fallback: return the image directly if no blob token
     return new NextResponse(arrayBuffer, {
       headers: {
         'Content-Type': contentType,
