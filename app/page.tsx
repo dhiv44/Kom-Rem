@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, RefreshCw, AlertCircle, BookOpen, List, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { Loader2, RefreshCw, AlertCircle, BookOpen, List, ArrowLeft, ArrowRight, Image as ImageIcon } from 'lucide-react';
 
 interface Comic {
   title: string;
@@ -373,77 +373,95 @@ export default function Page() {
             )}
 
             {/* Chapter View */}
-            {view === 'chapter' && chapterDetail && (
-              <div className="flex flex-col items-center bg-black rounded-xl overflow-hidden w-full">
-                {chapterDetail.pdfUrl ? (
-                  <div className="w-full h-[80vh] flex flex-col">
-                    <iframe 
-                      src={chapterDetail.pdfUrl} 
-                      className="w-full h-full border-0"
-                      title="PDF Viewer"
-                      allowFullScreen
-                    />
-                    <div className="p-4 bg-slate-800 text-center">
-                      <a 
-                        href={chapterDetail.pdfUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-indigo-400 hover:text-indigo-300 text-sm font-medium"
-                      >
-                        Buka PDF di tab baru jika tidak muncul
-                      </a>
-                    </div>
-                  </div>
-                ) : chapterDetail.images.length > 0 ? (
-                  chapterDetail.images.map((img, i) => (
-                    <LazyImage 
-                      key={i} 
-                      src={`/api/image?url=${encodeURIComponent(img)}`} 
-                      alt={`Page ${i + 1}`} 
-                      className="w-full max-w-3xl min-h-[50vh] sm:min-h-[80vh] bg-slate-900"
-                      imgClassName="h-auto block"
-                    />
-                  ))
-                ) : (
-                  <div className="py-20 flex flex-col items-center text-slate-400 w-full px-4 text-center">
-                    <ImageIcon className="w-12 h-12 mb-4 opacity-50" />
-                    <p className="mb-2">No images or PDF found for this chapter.</p>
-                    <p className="text-xs max-w-md opacity-70">
-                      Gunakan tombol &quot;Buka Debug HTML&quot; di bawah untuk melihat struktur asli halaman ini.
-                    </p>
-                  </div>
-                )}
-                
-                <div className="p-6 w-full flex flex-col sm:flex-row justify-center items-center gap-4 bg-slate-900">
-                  <button 
-                    onClick={() => setView('detail')}
-                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors flex items-center gap-2 w-full sm:w-auto justify-center"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                    Back to Chapters
-                  </button>
-                  
-                  <button 
-                    onClick={async () => {
-                      try {
-                        const res = await fetch(`/api/komik?type=chapter&url=${encodeURIComponent(selectedChapterUrl!)}&debug=true`);
-                        const data = await res.json();
-                        if (data.rawHtml) {
-                          const blob = new Blob([data.rawHtml], { type: 'text/html' });
-                          const url = URL.createObjectURL(blob);
-                          window.open(url, '_blank');
-                        }
-                      } catch (e) {
-                        alert('Failed to load debug HTML');
+            {view === 'chapter' && chapterDetail && (() => {
+              const currentIndex = comicDetail?.chapters.findIndex(c => c.link === selectedChapterUrl) ?? -1;
+              const nextChapter = currentIndex > 0 ? comicDetail?.chapters[currentIndex - 1] : null;
+              const prevChapter = currentIndex !== -1 && currentIndex < (comicDetail?.chapters.length || 0) - 1 ? comicDetail?.chapters[currentIndex + 1] : null;
+
+              const NavButtons = () => (
+                <div className="p-4 w-full flex flex-row justify-between items-center gap-2 bg-slate-900 border-y border-slate-800">
+                  <button
+                    onClick={() => {
+                      if (prevChapter) {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        fetchChapterDetail(prevChapter.link);
                       }
                     }}
-                    className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl transition-colors flex items-center gap-2 w-full sm:w-auto justify-center text-sm"
+                    disabled={!prevChapter}
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-white font-medium rounded-lg transition-colors flex items-center gap-2 flex-1 justify-center sm:flex-none"
                   >
-                    Buka Debug HTML
+                    <ArrowLeft className="w-4 h-4" />
+                    <span className="hidden sm:inline">Prev Chapter</span>
+                  </button>
+
+                  <button
+                    onClick={() => setView('detail')}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 flex-[2] justify-center truncate mx-2 max-w-xs"
+                  >
+                    <List className="w-4 h-4 shrink-0" />
+                    <span className="truncate text-sm hidden sm:inline">All Chapters</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (nextChapter) {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        fetchChapterDetail(nextChapter.link);
+                      }
+                    }}
+                    disabled={!nextChapter}
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-white font-medium rounded-lg transition-colors flex items-center gap-2 flex-1 justify-center sm:flex-none"
+                  >
+                    <span className="hidden sm:inline">Next Chapter</span>
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
-              </div>
-            )}
+              );
+
+              return (
+                <div className="flex flex-col items-center bg-black rounded-xl overflow-hidden w-full">
+                  <NavButtons />
+                  
+                  {chapterDetail.pdfUrl ? (
+                    <div className="w-full h-[80vh] flex flex-col">
+                      <iframe 
+                        src={chapterDetail.pdfUrl} 
+                        className="w-full h-full border-0"
+                        title="PDF Viewer"
+                        allowFullScreen
+                      />
+                      <div className="p-4 bg-slate-800 text-center">
+                        <a 
+                          href={chapterDetail.pdfUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-indigo-400 hover:text-indigo-300 text-sm font-medium"
+                        >
+                          Buka PDF di tab baru jika tidak muncul
+                        </a>
+                      </div>
+                    </div>
+                  ) : chapterDetail.images.length > 0 ? (
+                    chapterDetail.images.map((img, i) => (
+                      <LazyImage 
+                        key={i} 
+                        src={`/api/image?url=${encodeURIComponent(img)}`} 
+                        alt={`Page ${i + 1}`} 
+                        className="w-full max-w-3xl min-h-[50vh] sm:min-h-[80vh] bg-slate-900"
+                        imgClassName="h-auto block"
+                      />
+                    ))
+                  ) : (
+                    <div className="py-20 flex flex-col items-center text-slate-400 w-full px-4 text-center">
+                      <ImageIcon className="w-12 h-12 mb-4 opacity-50" />
+                      <p className="mb-2">No images or PDF found for this chapter.</p>
+                    </div>
+                  )}
+                  
+                  {chapterDetail.images.length > 0 && <NavButtons />}
+                </div>
+              );
+            })()}
 
             {/* Empty State */}
             {view === 'home' && comics.length === 0 && !error && !loading && (
