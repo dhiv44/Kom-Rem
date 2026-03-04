@@ -12,8 +12,8 @@ const USER_AGENTS = [
 
 const REFERERS = [
   'https://komikremaja.art/',
+  'https://komikdewasa.art/',
   'https://www.google.com/',
-  'https://www.bing.com/',
   'https://yandex.com/',
   'https://duckduckgo.com/',
   'https://komikcast.vip/',
